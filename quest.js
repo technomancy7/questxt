@@ -38,12 +38,8 @@ export class Questing {
         this.projectRe = /\@[a-zA-Z0-9]+/g;
     }
 
-    colour(c) {
-        if(this.settings.disableColours) return "";
-        if(this.settings.disableColour) return "";
-        if(this.settings.disableColors) return "";
-        if(this.settings.disableColor) return "";
-        let fmtCodes = {
+    colours() {
+        return {
             "reset": '\033[0m',
             "red": Bun.color("red", "ansi"),
             "green": Bun.color("green", "ansi"),
@@ -51,6 +47,7 @@ export class Questing {
             "cyan":Bun.color("cyan", "ansi"),
             "orange":Bun.color("orange", "ansi"),
             "yellow": Bun.color("yellow", "ansi"),
+            "purple": Bun.color("purple", "ansi"),
             "bold": "\u001b[1m",
             "dim": "\u001b[2m",
             "italic": "\u001b[3m",
@@ -60,9 +57,17 @@ export class Questing {
             "hidden": "\u001b[8m",
             "strike_through": "\u001b[9m",
         }
+    }
+
+    colour(c) {
+        if(this.settings.disableColours) return "";
+        if(this.settings.disableColour) return "";
+        if(this.settings.disableColors) return "";
+        if(this.settings.disableColor) return "";
+        let fmtCodes = this.colours();
 
         let f = fmtCodes[c];
-        if(f == undefined) return "";
+        if(f == undefined) return fmtCodes.reset;
         return f;
     }
 
@@ -234,7 +239,7 @@ export class Questing {
         let tags = ql.match(this.tagsRe) || []
 
         for(const tag of tags) {
-            ql = ql.replace(tag, `${this.colour('blue')}${tag}${this.colour('reset')}`)
+            ql = ql.replace(tag, `${this.colour('purple')}${tag}${this.colour('reset')}`)
         }
 
         return ql;
@@ -266,6 +271,10 @@ export class Questing {
 }
 
 if(import.meta.main) {
+    await main()
+}
+
+async function main() {
     let q = new Questing();
     await q.loadFile();
     const args = argParser(process.argv.slice(2));
@@ -286,7 +295,7 @@ if(import.meta.main) {
             //if(args.project && quest.project == args.project) accepted = true;
             if(args.project && quest.project != args.project) denied = true;
             //if(args.t && quest.tags.includes(args.t)) accepted = true;
-            if(args.t && !quest.tags.includes(args.t)) denied = true;
+            if(args.tag && !quest.tags.includes(args.tag)) denied = true;
             //if(args._.slice(1).length > 0 && quest.text.includes(args._.slice(1).join(" "))) accepted = true;
             if(args._.slice(1).length > 0 && !quest.text.includes(args._.slice(1).join(" "))) denied = true;
 
@@ -304,13 +313,49 @@ if(import.meta.main) {
         }
     }
     switch (args._[0]) {
+        case "help":
+            console.log("QUESTXT")
+            console.log("")
+            console.log("Commands:")
+            console.log(" add [quest syntax]")
+            console.log(" done [filter syntax]")
+            console.log(" get [filter syntax]")
+            console.log(" delete [filter syntax]")
+            console.log(" ls")
+            console.log(" edit")
+            console.log(" archive")
+            console.log(" unset [key]")
+            console.log(" set [settings syntax]")
+            console.log(" unset [key]")
+            console.log(" settings")
+            console.log(" gainexp [number]")
+            console.log(" status")
+            console.log(" sort")
+            break;
+
         case "unset":
+            if(args.h) {
+                console.log(`unset
+
+                Input:
+                    text (Settings key to erase)
+                `.replace(/  +/g, ''))
+                return
+            }
             delete q.settings[args._.slice(1).join(" ")];
             await q.exportFile()
             printSettings()
             break;
 
         case "set":
+            if(args.h) {
+                console.log(`set
+
+                Input:
+                    text (Settings syntax, e.g. editor hx, key-only for a boolean setting)
+                `.replace(/  +/g, ''))
+                return
+            }
             let new_setting = args._.slice(1).join(" ");
             q.parseSetting(new_setting);
             await q.exportFile()
@@ -318,20 +363,51 @@ if(import.meta.main) {
             break;
 
         case "settings":
+            if(args.h) {
+                console.log(`settings
+
+                No additional input.
+                `.replace(/  +/g, ''))
+                return
+            }
             printSettings()
             break
 
         case "gainexp":
+            if(args.h) {
+                console.log(`gainexp
+
+                Input:
+                    number (Experience points to give)
+                `.replace(/  +/g, ''))
+                return
+            }
             q.gainEXP(parseInt(args._[1]))
             q.exportFile()
             break;
 
         case "status":
+            if(args.h) {
+                console.log(`status
+
+                No additional input.
+                `.replace(/  +/g, ''))
+                return
+            }
             let expToLevel = Math.floor(100 * q.settings.level * 1.2);
             console.log(`Level ${q.settings.level}, ${q.settings.exp}/${q.settings.exp}`)
             break;
 
         case "sort":
+            if(args.h) {
+                console.log(`sort
+
+                Args:
+                    -r (Reverses order)
+
+                `.replace(/  +/g, ''))
+                return
+            }
             q.sortEntriesByPriority(args.r || false);
             await q.exportFile();
             break;
@@ -340,6 +416,34 @@ if(import.meta.main) {
         case "complete":
         case "c":
         case "d":
+            if(args.h) {
+                console.log(`done
+                Input:
+                    text (used to search text of quests)
+                    if text matches a quests key, shows only that match
+
+                Args:
+                    -a (show completed quests)
+                    --project <name>
+                    --key <name>
+                    --tag <tag>
+                    --exp <number>
+                    --priority <number>
+
+                `.replace(/  +/g, ''))
+                return
+            }
+
+            for(const quest of q.quests) {
+                if(quest.key == args._.slice(1).join(" ") && quest.completedAt == "") {
+                    quest.completedAt = dayjs().format('HH:mm DD-MM-YYYY')
+                    console.log(q.colourQuest(quest));
+                    q.gainEXP(quest.exp);
+                    await q.exportFile();
+                    return
+                }
+            }
+
             quests = filterQuests();
             if(quests.length > 1 && !args.m) {
                 for(const quest of quests){
@@ -353,12 +457,14 @@ if(import.meta.main) {
                     q.gainEXP(quest.exp)
                 }
                 await q.exportFile()
-            } else {
+            } else if(quests.length == 1){
 
                 quests[0].completedAt = dayjs().format('HH:mm DD-MM-YYYY')
                 console.log(q.colourQuest(quests[0]))
                 q.gainEXP(quests[0].exp)
                 await q.exportFile()
+            } else {
+                console.log("No results found.")
             }
 
             break;
@@ -368,9 +474,36 @@ if(import.meta.main) {
         case "search":
         case "s":
         case "g":
+            if(args.h) {
+                console.log(`get
+                Input:
+                    text (used to search text of quests)
+                    if text matches a quests key, shows only that match
+
+                Args:
+                    -a (show completed quests)
+                    --project <name>
+                    --key <name>
+                    --tag <tag>
+                    --exp <number>
+                    --priority <number>
+
+                `.replace(/  +/g, ''))
+                return
+            }
+
+            for(const quest of q.quests) {
+                if(quest.key == args._.slice(1).join(" ")) {
+                    console.log(q.colourQuest(quest));
+                    return
+                }
+            }
+
             for(const quest of filterQuests(args.a || false)){
                 console.log(q.colourQuest(quest))
             }
+
+
 
             break;
 
@@ -391,6 +524,32 @@ if(import.meta.main) {
             break;
 
         case "delete":
+            if(args.h) {
+                console.log(`delete
+                Input:
+                    text (used to search text of quests)
+
+                Args:
+                    -a (show completed quests)
+                    --project <name>
+                    --key <name>
+                    --tag <tag>
+                    --exp <number>
+                    --priority <number>
+
+                `.replace(/  +/g, ''))
+                return
+            }
+
+            for(const quest of q.quests) {
+                if(quest.key == args._.slice(1).join(" ")) {
+                    q.quests = q.quests.filter(function(el) { return el != quest; });
+                    console.log(q.colourQuest(quest))
+                    await q.exportFile()
+                    return
+                }
+            }
+
             quests = filterQuests(true);
             if(quests.length > 1 && !args.m) {
                 for(const quest of quests){
@@ -412,12 +571,38 @@ if(import.meta.main) {
             break;
 
         case "edit":
+            if(args.h) {
+                console.log(`edit
+
+                Args:
+                    --e <editor> (override editor command)
+
+                `.replace(/  +/g, ''))
+                return
+            }
             if(args.e) q.settings.editor = args.e;
             await q.editFile();
             break;
 
         case "list":
         case "ls":
+        case "a":
+            if(args.h) {
+                console.log(`ls
+                Input:
+                    text (used to search text of quests)
+
+                Args:
+                    -a (show completed quests)
+                    --project <name>
+                    --key <name>
+                    --tag <tag>
+                    --exp <number>
+                    --priority <number>
+
+                `.replace(/  +/g, ''))
+                return
+            }
             for(const quest of filterQuests(args.a || false)) {
                 console.log(q.colourQuest(quest))
             }
@@ -425,6 +610,22 @@ if(import.meta.main) {
 
         case "add":
         case "a":
+            if(args.h) {
+                console.log(`add
+
+                Example:
+                    * 22:55 04-07-2025: Finish this quest system. #coding @quest [500] (100) $q1
+                    - Line starts with "*"
+                    - Optionally start the text with "HH:mm DD-MM-YYYY: " to mark quest as completed
+                    - contains text
+                    - Optionally any number of tags marked #tag1 #tag2 #etc
+                    - Optionally assign a project with @projectName
+                    - Optionally assign a key with $keyName
+                    - Optionally assign EXP reward for completion with [exp number]
+                    - Optionally assign priority with (priority number)
+                `.replace(/  +/g, ''))
+                return
+            }
             let t = args._.slice(1).join(" ");
             if(t) {
                 let nq = q.parseQuestLine(t)
