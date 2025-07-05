@@ -1,0 +1,9 @@
+{
+  "scripts": {
+    "b": "bun build quest.js --compile && mv quest $HOME/.local/bin/quest"
+  },
+  "dependencies": {
+    "dayjs": "^1.11.13",
+    "yargs-parser": "^22.0.0"
+  }
+}

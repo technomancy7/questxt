@@ -1,0 +1,9 @@
+@settings.editor hx
+@settings.exp:int 0
+@settings.level:int 1
+@settings.comment1 expToLevel = 100 * level * 1.2 (floored)
+* Finish this quest system. #coding @quest [500] (1) $q1
+@settings.comment2 line starts with no modifier, following text is the text, including #tags, regex check for [number] for the exp
+@settings.comment3 if line contains (number) it represents it's "priority", used for sorting
+@settings.comment4 if line contain $key, defines a key that can be used to instantly get the quest, otherwise can search by text content
+* 22:55 04-07-2025: If text starts with "date format: ", marks quest as completed $q2
