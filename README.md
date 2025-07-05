@@ -30,12 +30,11 @@ quest delete "new" # DELETES the quest from the file instead of marking as compl
 quest archive #moves all quests out of the main quest file and in to an archive file
 ```
 
-<br>
 Change settings for the quest file.<br>
 Values can be arbitrary, left open for future scripting and extensions support.<br>
 Some values are used internally;<br>
 `editor` changes the text editor called.<br>
-`disableColours`, `disableColour`, `disableColors`, `disableColor` all disable text formatting<br>
+`disableColours`, `disableColour`, `disableColors`, `disableColor` all disable text formatting
 `settings.dateFormat` changes the format used for the dates, see [DayJS Format docs](https://day.js.org/docs/en/display/format) for details.
 
 ```bash
