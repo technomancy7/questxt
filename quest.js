@@ -49,6 +49,8 @@ export class Questing {
             "orange":Bun.color("orange", "ansi"),
             "yellow": Bun.color("yellow", "ansi"),
             "purple": Bun.color("purple", "ansi"),
+            "grey": Bun.color("grey", "ansi"),
+            "gray": Bun.color("gray", "ansi"),
             "bold": "\u001b[1m",
             "dim": "\u001b[2m",
             "italic": "\u001b[3m",
@@ -170,7 +172,7 @@ export class Questing {
             .replace(this.priorityRe, '')
             .replace(this.expRe, '')
             .replace(this.keyRe, '')
-            .replace(this.tagsRe, '')
+            //.replace(this.tagsRe, '')
             .replace(this.projectRe, '')
             .trim();
         this.quests.push(quest);
@@ -217,13 +219,14 @@ export class Questing {
         let ln = q.text;
         if(q.completedAt) ln = `${q.completedAt}: ${ln}`;
         if(q.state != "") ln = `${q.state} ${ln}`
+        //if(q.tags.length > 0) ln = ln + ` ${q.tags.map(word => `#${word}`).join(' ')}`;
         if(q.key != "") ln = ln + ` $${q.key}`;
         if(q.project != "") ln = ln + ` @${q.project}`;
         if(q.priority != 0) ln = ln + ` (${q.priority})`;
         if(q.exp != 0) ln = ln + ` [${q.exp}]`;
-        if(q.tags.length > 0) ln = ln + ` ${q.tags.map(word => `#${word}`).join(' ')}`;
 
-        ln = `* ${ln}`
+
+        ln = `* ${ln}`.trim().replace(/ {1,}/g," ");;
         return ln;
     }
 
@@ -231,6 +234,7 @@ export class Questing {
     colourQuest(q) {
         return this.colourQuestLine(this.formatQuest(q))
     }
+
     colourQuestLine(ql) {
         let f = this.colour;
 
@@ -238,7 +242,7 @@ export class Questing {
         if(ql.includes("FAILED ")) ql = ql.replace("FAILED ", `${this.colour('red')}${this.colour('bold')}FAILED ${this.colour('reset')}`)
         if(ql.includes("DONE ")) ql = ql.replace("DONE ", `${this.colour('green')}${this.colour('bold')}DONE ${this.colour('reset')}`)
         if(ql.includes("DOING ")) ql = ql.replace("DOING ", `${this.colour('cyan')}${this.colour('bold')}DOING ${this.colour('reset')}`)
-        if(ql.includes("PAUSED ")) ql = ql.replace("PAUSED ", `${this.colour('dim')}${this.colour('bold')}PAUSED ${this.colour('reset')}`)
+        if(ql.includes("PAUSED ")) ql = ql.replace("PAUSED ", `${this.colour('gray')}${this.colour('bold')}PAUSED ${this.colour('reset')}`)
 
         let priority = ql.match(this.priorityRe);
         if(priority) ql = ql.replace(priority[0], `${this.colour('red')}${priority[0]}${this.colour('reset')}`)
@@ -450,6 +454,10 @@ async function main() {
                     --new-exp <number> (Changes EXP)
                     --new-priority <number> (Changes priority)
                     --new-state <name> (Changes state)
+                    --new-text <text> (Replaces entire body of text)
+                    --prepend-text <text> (Adds text to the start)
+                    --append-text <text> (Adds text to end)
+                    --replace-text <text> (Replaces text within string with value of --replace-with)
 
                 `.replace(/  +/g, ''))
                 return
@@ -459,10 +467,15 @@ async function main() {
                 if(quest.key == args._.slice(1).join(" ") && quest.completedAt == "") {
                     if(args.newProject) quest.project = args.newProject;
                     if(args.newKey) quest.key = args.newKey;
-                    if(args.newTags) quest.tags = args.newTags.split(",");
+                    //if(args.newTags) quest.tags = args.newTags.split(",");
                     if(args.newExp) quest.exp = parseInt(args.newExp);
                     if(args.newPriority) quest.priority = parseInt(args.newPriority);
                     if(args.newState) quest.state = args.newState;
+                    if(args.newText) quest.text = args.newText;
+                    if(args.appendText) quest.text = `${quest.text} ${args.appendText}`;
+                    if(args.prependText) quest.text = `${args.prependText} ${quest.text}`;
+                    if(args.replaceText) quest.text = quest.text.replace(args.replaceText, args.replaceWith);
+
                     await q.exportFile();
                     console.log(q.colourQuest(quests[0]))
                     return
@@ -475,14 +488,15 @@ async function main() {
                 console.error("\nSearch too ambiguous, be more specific.")
 
             } else if(quests.length == 1){
-
                 if(args.newProject) quests[0].project = args.newProject;
                 if(args.newKey) quests[0].key = args.newKey;
-                if(args.newTags) quests[0].tags = args.newTags.split(",");
                 if(args.newExp) quests[0].exp = parseInt(args.newExp);
                 if(args.newPriority) quests[0].priority = parseInt(args.newPriority);
                 if(args.newState) quests[0].state = args.newState;
-
+                if(args.newText) quests[0].text = args.newText;
+                if(args.appendText) quests[0].text = `${quests[0].text} ${args.appendText}`;
+                if(args.prependText) quests[0].text = `${args.prependText} ${quests[0].text}`;
+                if(args.replaceText) quests[0].text = quests[0].text.replace(args.replaceText, args.replaceWith);
                 await q.exportFile()
                 console.log(q.colourQuest(quests[0]))
 
