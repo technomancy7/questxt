@@ -465,12 +465,18 @@ async function main() {
 
             for(const quest of q.quests) {
                 if(quest.key == args._.slice(1).join(" ") && quest.completedAt == "") {
-                    if(args.newProject) quest.project = args.newProject;
-                    if(args.newKey) quest.key = args.newKey;
+                    console.log(args)
+                    if(args.newState == true) args.newState = "";
+                    if(args.newKey == true) args.newKey = "";
+                    if(args.replaceWith == true) args.replaceWith = "";
+                    if(args.newProject == true) args.newProject = "";
+
+                    if(args.newProject != undefined) quest.project = args.newProject;
+                    if(args.newKey != undefined) quest.key = args.newKey;
                     //if(args.newTags) quest.tags = args.newTags.split(",");
                     if(args.newExp) quest.exp = parseInt(args.newExp);
                     if(args.newPriority) quest.priority = parseInt(args.newPriority);
-                    if(args.newState) quest.state = args.newState;
+                    if(args.newState != undefined) quest.state = args.newState;
                     if(args.newText) quest.text = args.newText;
                     if(args.appendText) quest.text = `${quest.text} ${args.appendText}`;
                     if(args.prependText) quest.text = `${args.prependText} ${quest.text}`;
@@ -488,11 +494,16 @@ async function main() {
                 console.error("\nSearch too ambiguous, be more specific.")
 
             } else if(quests.length == 1){
-                if(args.newProject) quests[0].project = args.newProject;
-                if(args.newKey) quests[0].key = args.newKey;
+                if(args.newState == true) args.newState = "";
+                if(args.newKey == true) args.newKey = "";
+                if(args.replaceWith == true) args.replaceWith = "";
+                if(args.newProject == true) args.newProject = "";
+
+                if(args.newProject != undefined) quests[0].project = args.newProject;
+                if(args.newKey != undefined) quests[0].key = args.newKey;
                 if(args.newExp) quests[0].exp = parseInt(args.newExp);
                 if(args.newPriority) quests[0].priority = parseInt(args.newPriority);
-                if(args.newState) quests[0].state = args.newState;
+                if(args.newState != undefined) quests[0].state = args.newState;
                 if(args.newText) quests[0].text = args.newText;
                 if(args.appendText) quests[0].text = `${quests[0].text} ${args.appendText}`;
                 if(args.prependText) quests[0].text = `${args.prependText} ${quests[0].text}`;

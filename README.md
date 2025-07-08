@@ -30,6 +30,20 @@ quest delete "new" # DELETES the quest from the file instead of marking as compl
 quest archive #moves all quests out of the main quest file and in to an archive file
 ```
 
+Modifying quests in the CLI.<br>
+While it's easy enough to modify quests in the text editor using the simple syntax, there are also commands to modify the quests.
+
+```bash
+# Using the earlier quest as an example.
+
+quest modify "new" --new-project "testing"
+quest modify "new" --append-text "#experimental"
+quest modify "new" --prepend-text "I dare say"
+quest modify "new" --replace-text "This" --replace-with "this"
+```
+
+<br><br>
+
 Change settings for the quest file.<br>
 Values can be arbitrary, left open for future scripting and extensions support.<br>
 Some values are used internally;<br>
@@ -43,6 +57,7 @@ quest set goal:int 100
 quest unset goal
 quest settings
 ```
+
 <br>
 <br>
 Misc commands.
