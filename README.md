@@ -6,7 +6,9 @@ Adding a new quest is simple text.
 
 ```bash
 quest add "This is a new quest! #testing [100]"
-quest sort #sorts quests by priority
+quest sort-priority #sorts quests by priority
+quest sort-state
+quest sort-project
 ```
 <br>
 Searching quests can use some semi-advanced filters.

@@ -36,7 +36,7 @@ export class Questing {
         this.keyRe = /\$[a-zA-Z0-9]+/g;
         this.tagsRe = /\#[a-zA-Z0-9!]+/g;
         this.projectRe = /\@[a-zA-Z0-9]+/g;
-        this.states = ["TODO", "DOING", "DONE", "PAUSED", "FAILED"]
+        this.states = ["TODO", "DOING", "DONE", "PAUSED", "FAILED", "WAIT"]
     }
 
     colours() {
@@ -100,13 +100,24 @@ export class Questing {
         this.settings = {};
     }
 
-    sortEntriesByPriority(reverse = false) {
+    sortEntriesByProject(reverse = false) {
+        this.quests.sort((a, b) => a.project.localeCompare(b.project));
+    }
 
+    sortEntriesByState(reverse = false) {
+        this.quests.sort((a, b) => a.state.localeCompare(b.state));
+    }
+
+    sortEntriesByText(reverse = false) {
+        this.quests.sort((a, b) => a.text.localeCompare(b.text));
+
+    }
+
+    sortEntriesByPriority(reverse = false) {
         this.quests.sort((a, b) => {
             if(!reverse) return a.priority - b.priority;
             if(reverse) return b.priority - a.priority;
         });
-
     }
 
     async editFile(entryFile = false) {
@@ -194,6 +205,7 @@ export class Questing {
 
         this.settings[key] = value;
     }
+
     async loadFile(path = undefined) {
         if(path == undefined) path = this.questFile;
         const i = Bun.file(path);
@@ -219,12 +231,10 @@ export class Questing {
         let ln = q.text;
         if(q.completedAt) ln = `${q.completedAt}: ${ln}`;
         if(q.state != "") ln = `${q.state} ${ln}`
-        //if(q.tags.length > 0) ln = ln + ` ${q.tags.map(word => `#${word}`).join(' ')}`;
         if(q.key != "") ln = ln + ` $${q.key}`;
         if(q.project != "") ln = ln + ` @${q.project}`;
         if(q.priority != 0) ln = ln + ` (${q.priority})`;
         if(q.exp != 0) ln = ln + ` [${q.exp}]`;
-
 
         ln = `* ${ln}`.trim().replace(/ {1,}/g," ");;
         return ln;
@@ -240,9 +250,11 @@ export class Questing {
 
         if(ql.includes("TODO ")) ql = ql.replace("TODO ", `${this.colour('yellow')}${this.colour('bold')}TODO ${this.colour('reset')}`)
         if(ql.includes("FAILED ")) ql = ql.replace("FAILED ", `${this.colour('red')}${this.colour('bold')}FAILED ${this.colour('reset')}`)
+
         if(ql.includes("DONE ")) ql = ql.replace("DONE ", `${this.colour('green')}${this.colour('bold')}DONE ${this.colour('reset')}`)
         if(ql.includes("DOING ")) ql = ql.replace("DOING ", `${this.colour('cyan')}${this.colour('bold')}DOING ${this.colour('reset')}`)
         if(ql.includes("PAUSED ")) ql = ql.replace("PAUSED ", `${this.colour('gray')}${this.colour('bold')}PAUSED ${this.colour('reset')}`)
+        if(ql.includes("WAIT ")) ql = ql.replace("WAIT ", `${this.colour('gray')}${this.colour('bold')}WAIT ${this.colour('reset')}`)
 
         let priority = ql.match(this.priorityRe);
         if(priority) ql = ql.replace(priority[0], `${this.colour('red')}${priority[0]}${this.colour('reset')}`)
@@ -346,7 +358,10 @@ async function main() {
             console.log(" settings")
             console.log(" gainexp [number]")
             console.log(" status")
-            console.log(" sort")
+            console.log(" sort-project")
+            console.log(" sort-state")
+            console.log(" sort-priority")
+            console.log(" sort-text")
             break;
 
         case "print":
@@ -418,7 +433,41 @@ async function main() {
             console.log(`Level ${q.settings.level}, ${q.settings.exp}/${q.settings.exp}`)
             break;
 
-        case "sort":
+        case "sort-project":
+            if(args.h) {
+                console.log(`sort
+
+                Args:
+                    -r (Reverses order)
+
+                `.replace(/  +/g, ''))
+                return
+            }
+            q.sortEntriesByProject(args.r || false);
+            await q.exportFile();
+            for(const quest of q.quests) {
+                console.log(q.colourQuest(quest))
+            }
+            break;
+
+        case "sort-text":
+            if(args.h) {
+                console.log(`sort
+
+                Args:
+                    -r (Reverses order)
+
+                `.replace(/  +/g, ''))
+                return
+            }
+            q.sortEntriesByText(args.r || false);
+            await q.exportFile();
+            for(const quest of q.quests) {
+                console.log(q.colourQuest(quest))
+            }
+            break;
+
+        case "sort-priority":
             if(args.h) {
                 console.log(`sort
 
@@ -430,6 +479,26 @@ async function main() {
             }
             q.sortEntriesByPriority(args.r || false);
             await q.exportFile();
+            for(const quest of q.quests) {
+                console.log(q.colourQuest(quest))
+            }
+            break;
+
+        case "sort-state":
+            if(args.h) {
+                console.log(`sort
+
+                Args:
+                    -r (Reverses order)
+
+                `.replace(/  +/g, ''))
+                return
+            }
+            q.sortEntriesByState(args.r || false);
+            await q.exportFile();
+            for(const quest of q.quests) {
+                console.log(q.colourQuest(quest))
+            }
             break;
 
         case "modify":
@@ -464,8 +533,8 @@ async function main() {
             }
 
             for(const quest of q.quests) {
-                if(quest.key == args._.slice(1).join(" ") && quest.completedAt == "") {
-                    console.log(args)
+                if(quest.key != "" && quest.key == args._.slice(1).join(" ") && quest.completedAt == "") {
+                    //console.log(args)
                     if(args.newState == true) args.newState = "";
                     if(args.newKey == true) args.newKey = "";
                     if(args.replaceWith == true) args.replaceWith = "";
@@ -483,7 +552,7 @@ async function main() {
                     if(args.replaceText) quest.text = quest.text.replace(args.replaceText, args.replaceWith);
 
                     await q.exportFile();
-                    console.log(q.colourQuest(quests[0]))
+                    console.log(q.colourQuest(quest))
                     return
                 }
             }
