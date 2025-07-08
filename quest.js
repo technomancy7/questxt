@@ -34,8 +34,9 @@ export class Questing {
         this.priorityRe = /\(\d+\)/g; // Matches (number)
         this.expRe = /\[\d+\]/g; // Matches [number]
         this.keyRe = /\$[a-zA-Z0-9]+/g;
-        this.tagsRe = /\#[a-zA-Z0-9]+/g;
+        this.tagsRe = /\#[a-zA-Z0-9!]+/g;
         this.projectRe = /\@[a-zA-Z0-9]+/g;
+        this.states = ["TODO", "DOING", "DONE", "PAUSED", "FAILED"]
     }
 
     colours() {
@@ -124,18 +125,25 @@ export class Questing {
             priority: 0,
             exp: 0,
             text: "",
-            key: ""
+            key: "",
+            state: ""
         }
     }
 
     parseQuestLine(text) {
         let quest = this.defaultQuest();
 
-
-
         function startsWithDateTime(text) {
             const regex = /^\d{2}:\d{2} \d{2}-\d{2}-\d{4}: /;
             return regex.test(text);
+        }
+
+        for(const state of this.states) {
+            if(text.toUpperCase().startsWith(state)) {
+                quest.state = state;
+                text = text.slice(state.length+1);
+                break;
+            }
         }
 
         if(startsWithDateTime(text)) {
@@ -208,6 +216,7 @@ export class Questing {
     formatQuest(q) {
         let ln = q.text;
         if(q.completedAt) ln = `${q.completedAt}: ${ln}`;
+        if(q.state != "") ln = `${q.state} ${ln}`
         if(q.key != "") ln = ln + ` $${q.key}`;
         if(q.project != "") ln = ln + ` @${q.project}`;
         if(q.priority != 0) ln = ln + ` (${q.priority})`;
@@ -223,6 +232,13 @@ export class Questing {
         return this.colourQuestLine(this.formatQuest(q))
     }
     colourQuestLine(ql) {
+        let f = this.colour;
+
+        if(ql.includes("TODO ")) ql = ql.replace("TODO ", `${this.colour('yellow')}${this.colour('bold')}TODO ${this.colour('reset')}`)
+        if(ql.includes("FAILED ")) ql = ql.replace("FAILED ", `${this.colour('red')}${this.colour('bold')}FAILED ${this.colour('reset')}`)
+        if(ql.includes("DONE ")) ql = ql.replace("DONE ", `${this.colour('green')}${this.colour('bold')}DONE ${this.colour('reset')}`)
+        if(ql.includes("DOING ")) ql = ql.replace("DOING ", `${this.colour('cyan')}${this.colour('bold')}DOING ${this.colour('reset')}`)
+        if(ql.includes("PAUSED ")) ql = ql.replace("PAUSED ", `${this.colour('dim')}${this.colour('bold')}PAUSED ${this.colour('reset')}`)
 
         let priority = ql.match(this.priorityRe);
         if(priority) ql = ql.replace(priority[0], `${this.colour('red')}${priority[0]}${this.colour('reset')}`)
@@ -288,19 +304,14 @@ async function main() {
 
             if(!includeCompleted && quest.completedAt != "") continue;
 
-            //if(args.key && quest.key == args.key) accepted = true;
             if(args.key && quest.key != args.key) denied = true;
+            if(args.state && quest.state != args.state) denied = true;
             if(args.exp && quest.exp != parseInt(args.exp)) denied = true;
             if(args.priority && quest.priority != parseInt(args.priority)) denied = true;
-            //if(args.project && quest.project == args.project) accepted = true;
             if(args.project && quest.project != args.project) denied = true;
-            //if(args.t && quest.tags.includes(args.t)) accepted = true;
             if(args.tag && !quest.tags.includes(args.tag)) denied = true;
-            //if(args._.slice(1).length > 0 && quest.text.includes(args._.slice(1).join(" "))) accepted = true;
             if(args._.slice(1).length > 0 && !quest.text.includes(args._.slice(1).join(" "))) denied = true;
 
-            //console.log(quest, accepted, denied)
-            //if(accepted && !denied) output.push(quest)
             if(!denied) output.push(quest)
 
         }
@@ -319,6 +330,7 @@ async function main() {
             console.log("Commands:")
             console.log(" add [quest syntax]")
             console.log(" done [filter syntax]")
+            console.log(" modify [filter syntax]")
             console.log(" get [filter syntax]")
             console.log(" delete [filter syntax]")
             console.log(" ls")
@@ -331,6 +343,10 @@ async function main() {
             console.log(" gainexp [number]")
             console.log(" status")
             console.log(" sort")
+            break;
+
+        case "print":
+            console.log(q.quests)
             break;
 
         case "unset":
@@ -412,6 +428,70 @@ async function main() {
             await q.exportFile();
             break;
 
+        case "modify":
+        case "mod":
+        case "m":
+            if(args.h) {
+                console.log(`modify
+                Input:
+                    text (used to search text of quests)
+
+                Args:
+                    --project <name>
+                    --key <name>
+                    --tag <tag>
+                    --exp <number>
+                    --priority <number>
+                    --state <name>
+
+                    --new-project <name> (Changes project)
+                    --new-key <name> (Changes key)
+                    --new-tags <tag> (List of tags separate by ",")
+                    --new-exp <number> (Changes EXP)
+                    --new-priority <number> (Changes priority)
+                    --new-state <name> (Changes state)
+
+                `.replace(/  +/g, ''))
+                return
+            }
+
+            for(const quest of q.quests) {
+                if(quest.key == args._.slice(1).join(" ") && quest.completedAt == "") {
+                    if(args.newProject) quest.project = args.newProject;
+                    if(args.newKey) quest.key = args.newKey;
+                    if(args.newTags) quest.tags = args.newTags.split(",");
+                    if(args.newExp) quest.exp = parseInt(args.newExp);
+                    if(args.newPriority) quest.priority = parseInt(args.newPriority);
+                    if(args.newState) quest.state = args.newState;
+                    await q.exportFile();
+                    console.log(q.colourQuest(quests[0]))
+                    return
+                }
+            }
+
+            quests = filterQuests(true);
+            if(quests.length > 1 && !args.m) {
+                for(const quest of quests) { console.log(q.colourQuest(quest)) }
+                console.error("\nSearch too ambiguous, be more specific.")
+
+            } else if(quests.length == 1){
+
+                if(args.newProject) quests[0].project = args.newProject;
+                if(args.newKey) quests[0].key = args.newKey;
+                if(args.newTags) quests[0].tags = args.newTags.split(",");
+                if(args.newExp) quests[0].exp = parseInt(args.newExp);
+                if(args.newPriority) quests[0].priority = parseInt(args.newPriority);
+                if(args.newState) quests[0].state = args.newState;
+
+                await q.exportFile()
+                console.log(q.colourQuest(quests[0]))
+
+            } else {
+                console.log("No results found.")
+            }
+
+            break;
+
         case "done":
         case "complete":
         case "c":
@@ -429,16 +509,29 @@ async function main() {
                     --tag <tag>
                     --exp <number>
                     --priority <number>
+                    --state <name>
 
                 `.replace(/  +/g, ''))
                 return
             }
 
+            function completeQuest(quest) {
+                quest.completedAt = dayjs().format('HH:mm DD-MM-YYYY');
+
+                if(args.f) {
+                    //if(!quest.tags.includes("failed!")) quest.tags.push("failed!")
+                    quest.state = "FAILED";
+                    console.log("Quest Failed: "+q.colourQuest(quest));
+                } else {
+                    quest.state = "DONE";
+                    console.log("Quest Completed: "+q.colourQuest(quest));
+                    q.gainEXP(quest.exp);
+                }
+            }
+
             for(const quest of q.quests) {
                 if(quest.key == args._.slice(1).join(" ") && quest.completedAt == "") {
-                    quest.completedAt = dayjs().format('HH:mm DD-MM-YYYY')
-                    console.log(q.colourQuest(quest));
-                    q.gainEXP(quest.exp);
+                    completeQuest(quest)
                     await q.exportFile();
                     return
                 }
@@ -452,16 +545,12 @@ async function main() {
                 console.error("\nSearch too ambiguous, be more specific.")
             } else if(quests.length > 1 && args.m) {
                 for(const quest of quests) {
-                    quest.completedAt = dayjs().format('HH:mm DD-MM-YYYY')
-                    console.log(q.colourQuest(quest))
-                    q.gainEXP(quest.exp)
+                    completeQuest(quest)
                 }
                 await q.exportFile()
             } else if(quests.length == 1){
 
-                quests[0].completedAt = dayjs().format('HH:mm DD-MM-YYYY')
-                console.log(q.colourQuest(quests[0]))
-                q.gainEXP(quests[0].exp)
+                completeQuest(quests[0])
                 await q.exportFile()
             } else {
                 console.log("No results found.")
@@ -487,6 +576,7 @@ async function main() {
                     --tag <tag>
                     --exp <number>
                     --priority <number>
+                    --state <name>
 
                 `.replace(/  +/g, ''))
                 return

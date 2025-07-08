@@ -18,7 +18,7 @@ quest ls --project code #shows all quests in code project
 ```
 
 This shows quests with "new" in the text, with `#testing` tag, and that would give 10 EXP.<br>
-Also supported is, `--project <name>`, `--key <name>`, `--priority <number>`<br>
+Also supported is, `--project <name>`, `--key <name>`, `--priority <number>`, `--state <name>`<br>
 <br>
 Completing quests.
 
@@ -70,10 +70,11 @@ This example is the main important one, which decides what editor the CLI will u
 A complete quest line;
 
 ```
-* 22:55 04-07-2025: Finish this quest system. #coding @quest [500] (100) $q1
+* FAILED 22:55 04-07-2025: Finish this quest system. #coding @quest [500] (100) $q1
 ```
 - Line starts with "*"
-- Optionally start the text with `HH:mm DD-MM-YYYY: ` to mark quest as completed
+- Optionally starts with a state name, one of `["TODO", "DOING", "DONE", "PAUSED", "FAILED"]`
+- Optionally followed by text with `HH:mm DD-MM-YYYY: ` to mark quest as completed
 - contains text
 - Optionally any number of tags marked `#tag1` `#tag2` `#etc`
 - Optionally assign a project with `@projectName`
