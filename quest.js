@@ -28,8 +28,20 @@ export class Questing {
     constructor() {
         this.questFile = process.env.QUESTXT_FILE || process.env.HOME+"/.quests.txt";
         this.questArchive = process.env.QUESTXT_FILE || process.env.HOME+"/.quests.archive.txt";
-        this.quests = []
-        this.settings = {}
+        this.quests = [];
+        this.settings = {};
+
+        this.scriptHooks = [];
+        this.scriptHookPaths = [];
+        this.commandHooks = {
+            "quest_added": [],
+            "quest_deleted": [],
+            "quest_completed": [],
+            "quest_modified": [],
+            "quests_archived": [],
+            "exp_gained": [],
+
+        }
 
         this.priorityRe = /\(\d+\)/g; // Matches (number)
         this.expRe = /\[\d+\]/g; // Matches [number]
@@ -206,6 +218,14 @@ export class Questing {
         this.settings[key] = value;
     }
 
+    dispatchScriptHook(hookType, data = {}) {
+        //console.log(this.scriptHooks)
+        for(const hook of this.scriptHooks){
+            //console.log(hook)
+            if(hook[hookType] != undefined) hook[hookType](this, data);
+        }
+    }
+
     async loadFile(path = undefined) {
         if(path == undefined) path = this.questFile;
         const i = Bun.file(path);
@@ -219,6 +239,12 @@ export class Questing {
 
                 if(line.startsWith("@settings.")) {
                     this.parseSetting(line.slice("@settings.".length))
+                } else if(line.startsWith("@hooks.import ")){
+                    let scriptPath = line.slice("@hooks.import ".length);
+                     const hook = require(scriptPath);
+                     if(hook.loaded != undefined) hook.loaded(this);
+                     this.scriptHooks.push(hook);
+                    this.scriptHookPaths.push(scriptPath);
                 } else if(line.startsWith("* ")) {
                     if(line.slice(2) != "") this.parseQuestLine(line.slice(2))
                 }
@@ -293,6 +319,9 @@ export class Questing {
             }
         }
 
+        for(let scriptPath of this.scriptHookPaths) {
+            text.push("@hooks.import "+scriptPath);
+        }
         text.push("---")
         for (const q of questsObj) {
             text.push(this.formatQuest(q))
@@ -417,7 +446,7 @@ async function main() {
                 `.replace(/  +/g, ''))
                 return
             }
-            q.gainEXP(parseInt(args._[1]))
+            q.gainEXP(parseInt(args._[1]));
             q.exportFile()
             break;
 
@@ -534,7 +563,7 @@ async function main() {
 
             for(const quest of q.quests) {
                 if(quest.key != "" && quest.key == args._.slice(1).join(" ") && quest.completedAt == "") {
-                    //console.log(args)
+                    let old_version = { ...quest }
                     if(args.newState == true) args.newState = "";
                     if(args.newKey == true) args.newKey = "";
                     if(args.replaceWith == true) args.replaceWith = "";
@@ -545,7 +574,7 @@ async function main() {
                     //if(args.newTags) quest.tags = args.newTags.split(",");
                     if(args.newExp) quest.exp = parseInt(args.newExp);
                     if(args.newPriority) quest.priority = parseInt(args.newPriority);
-                    if(args.newState != undefined) quest.state = args.newState;
+                    if(args.newState != undefined) quest.state = args.newState.toUpperCase();
                     if(args.newText) quest.text = args.newText;
                     if(args.appendText) quest.text = `${quest.text} ${args.appendText}`;
                     if(args.prependText) quest.text = `${args.prependText} ${quest.text}`;
@@ -553,6 +582,7 @@ async function main() {
 
                     await q.exportFile();
                     console.log(q.colourQuest(quest))
+                    q.dispatchScriptHook("quest_modified", {"quest": quest, "old": old_version})
                     return
                 }
             }
@@ -563,6 +593,7 @@ async function main() {
                 console.error("\nSearch too ambiguous, be more specific.")
 
             } else if(quests.length == 1){
+                let old_version = { ...quests[0] }
                 if(args.newState == true) args.newState = "";
                 if(args.newKey == true) args.newKey = "";
                 if(args.replaceWith == true) args.replaceWith = "";
@@ -572,13 +603,14 @@ async function main() {
                 if(args.newKey != undefined) quests[0].key = args.newKey;
                 if(args.newExp) quests[0].exp = parseInt(args.newExp);
                 if(args.newPriority) quests[0].priority = parseInt(args.newPriority);
-                if(args.newState != undefined) quests[0].state = args.newState;
+                if(args.newState != undefined) quests[0].state = args.newState.toUpperCase();
                 if(args.newText) quests[0].text = args.newText;
                 if(args.appendText) quests[0].text = `${quests[0].text} ${args.appendText}`;
                 if(args.prependText) quests[0].text = `${args.prependText} ${quests[0].text}`;
                 if(args.replaceText) quests[0].text = quests[0].text.replace(args.replaceText, args.replaceWith);
                 await q.exportFile()
-                console.log(q.colourQuest(quests[0]))
+                console.log(q.colourQuest(quests[0]));
+                q.dispatchScriptHook("quest_modified", {"quest": quests[0], "old": old_version})
 
             } else {
                 console.log("No results found.")
@@ -619,6 +651,7 @@ async function main() {
                 } else {
                     quest.state = "DONE";
                     console.log("Quest Completed: "+q.colourQuest(quest));
+                    q.dispatchScriptHook("quest_completed", {"quest": quest})
                     q.gainEXP(quest.exp);
                 }
             }
