@@ -240,12 +240,19 @@ export class Questing {
 
                 if(line.startsWith("@settings.")) {
                     this.parseSetting(line.slice("@settings.".length))
+
                 } else if(line.startsWith("@hooks.import ")){
                     let scriptPath = line.slice("@hooks.import ".length);
-                     const hook = require(scriptPath);
-                     if(hook.loaded != undefined) hook.loaded(this);
-                     this.scriptHooks.push(hook);
                     this.scriptHookPaths.push(scriptPath);
+
+                    if(!scriptPath.includes("/") && !scriptPath.endsWith(".js")) {
+                        scriptPath = `${Bun.env.HOME}/.quests/${scriptPath}.js`
+                    }
+                    const hook = require(scriptPath);
+                    if(hook.loaded != undefined) hook.loaded(this);
+                    this.scriptHooks.push(hook);
+
+
                 } else if(line.startsWith("* ")) {
                     if(line.slice(2) != "") this.parseQuestLine(line.slice(2))
                 }
@@ -255,6 +262,7 @@ export class Questing {
     }
 
     formatQuest(q) {
+        console.log(q)
         let ln = q.text;
         if(q.completedAt) ln = `${q.completedAt}: ${ln}`;
         if(q.state != "") ln = `${q.state} ${ln}`
@@ -567,6 +575,8 @@ async function main() {
                     --prepend-text <text> (Adds text to the start)
                     --append-text <text> (Adds text to end)
                     --replace-text <text> (Replaces text within string with value of --replace-with)
+                    --set-prop <key> (Sets a property of the quest to the value of --value)
+                    --unset-prop <key> (Removes a property from a quest)
 
                 `.replace(/  +/g, ''))
                 return
@@ -591,7 +601,7 @@ async function main() {
                     if(args.prependText) quest.text = `${args.prependText} ${quest.text}`;
                     if(args.replaceText) quest.text = quest.text.replace(args.replaceText, args.replaceWith);
                     if(args.setProp) quest.properties[args.setProp] = args.v || args.value || "";
-                    if(args.unsetProp) delete quests[0].properties[args.unsetProp];
+                    if(args.unsetProp) delete quest.properties[args.unsetProp];
                     await q.exportFile();
                     console.log(q.colourQuest(quest))
                     q.dispatchScriptHook("quest_modified", {"quest": quest, "old": old_version})
@@ -750,7 +760,7 @@ async function main() {
             archives.quests = archives.quests.concat(completedQuests);
             await archives.exportFile(q.questArchive);
             await q.exportFile()
-
+            q.dispatchScriptHook("quests_archived", {"quests": completedQuests})
             console.log(`Archived ${completedQuests.length} quests.`)
             break;
 
@@ -776,6 +786,7 @@ async function main() {
                 if(quest.key == args._.slice(1).join(" ")) {
                     q.quests = q.quests.filter(function(el) { return el != quest; });
                     console.log(q.colourQuest(quest))
+                    q.dispatchScriptHook("quest_deleted", {"quest": quest})
                     await q.exportFile()
                     return
                 }
@@ -791,11 +802,13 @@ async function main() {
                 for(const quest of quests) {
                     console.log(q.colourQuest(quest))
                     q.quests = q.quests.filter(function(el) { return el != quest; });
+                    q.dispatchScriptHook("quest_deleted", {"quest": quest})
                 }
                 await q.exportFile()
             } else {
                 console.log(q.colourQuest(quests[0]))
                 q.quests = q.quests.filter(function(el) { return el != quests[0]; });
+                q.dispatchScriptHook("quest_deleted", {"quest": quests[0]})
                 await q.exportFile()
             }
 
