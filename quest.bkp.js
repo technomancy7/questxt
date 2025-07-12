@@ -45,10 +45,9 @@ export class Questing {
 
         this.priorityRe = /\(\d+\)/g; // Matches (number)
         this.expRe = /\[\d+\]/g; // Matches [number]
-        this.keyRe = /\$[a-zA-Z0-9]+/g; // Matches $key
-        this.tagsRe = /\#[a-zA-Z0-9!]+/g; // Matches #tag
-        this.projectRe = /\@[a-zA-Z0-9]+/g; // Matches @project
-        this.propsRe = /{[a-z]+:[\w\d\s,.!?]*}/g; //Matches {key:[value]}
+        this.keyRe = /\$[a-zA-Z0-9]+/g;
+        this.tagsRe = /\#[a-zA-Z0-9!]+/g;
+        this.projectRe = /\@[a-zA-Z0-9]+/g;
         this.states = ["TODO", "DOING", "DONE", "PAUSED", "FAILED", "WAIT"]
     }
 
@@ -91,24 +90,22 @@ export class Questing {
     gainEXP(gained) {
         if(gained <= 0) return;
 
-        let exp = Number(this.settings.exp);
-        let level = Number(this.settings.level);
+        let exp = this.settings.exp;
+        let level = this.settings.level;
         let expToLevel = Math.floor(100 * level * 1.2);
 
         exp = exp + gained;
 
-        if(this.settings.silenceEXPGain != "true" && this.settings.silenceEXPGain != "")
-            console.log(this.colour("green")+`Gained ${gained} EXP. (Lvl. ${level}, ${exp}/${expToLevel})${this.colour("reset")}`)
+        if(this.settings.silenceEXPGain != true) console.log(this.colour("green")+`Gained ${gained} EXP. (Lvl. ${level}, ${exp}/${expToLevel})${this.colour("reset")}`)
 
         if(exp >= expToLevel) {
             exp = exp - expToLevel;
             level = level + 1;
 
-            if(this.settings.silenceLevelUp != "true" && this.settings.silenceLevelUp != "")
-                console.log(this.colour("orange")+`Level up! Now level ${level}${this.colour("reset")}`)
+            if(this.settings.silenceLevelUp != true) console.log(this.colour("orange")+`Level up! Now level ${level}${this.colour("reset")}`)
         }
-        this.settings.exp = `${exp}`;
-        this.settings.level = `${level}`;
+        this.settings.exp = exp;
+        this.settings.level = level;
     }
 
     resetState() {
@@ -155,8 +152,7 @@ export class Questing {
             exp: 0,
             text: "",
             key: "",
-            state: "",
-            properties: {},
+            state: ""
         }
     }
 
@@ -196,16 +192,11 @@ export class Questing {
         let tags = text.match(this.tagsRe) || []
         quest.tags = tags.map((t) => { return t.slice(1) });
 
-        let props = text.match(this.propsRe) || [];
-        for(const prop of props) {
-            quest.properties[prop.split(":")[0].slice(1)] = prop.split(":").slice(1).join(":").slice(0, -1).trim()
-        }
-
         quest.text = text
             .replace(this.priorityRe, '')
             .replace(this.expRe, '')
             .replace(this.keyRe, '')
-            .replace(this.propsRe, '')
+            //.replace(this.tagsRe, '')
             .replace(this.projectRe, '')
             .trim();
         this.quests.push(quest);
@@ -215,6 +206,15 @@ export class Questing {
     parseSetting(line) {
         let key = line.split(" ")[0];
         let value = line.split(" ").slice(1).join(" ");
+
+        if(value == "") value = true;
+        else if(value == "false") value = false;
+        else if(key.includes(":")) {
+            const nuType = key.split(":")[1]
+            key = key.split(":")[0]
+            if(nuType == "int") value = parseInt(value)
+            if(nuType == "list") value = value.split("|")
+        }
 
         this.settings[key] = value;
     }
@@ -263,9 +263,6 @@ export class Questing {
         if(q.priority != 0) ln = ln + ` (${q.priority})`;
         if(q.exp != 0) ln = ln + ` [${q.exp}]`;
 
-        for(const [key, val] of Object.entries(q.properties)) {
-            ln = ln + ` {${key}:${val}}`
-        }
         ln = `* ${ln}`.trim().replace(/ {1,}/g," ");;
         return ln;
     }
@@ -304,17 +301,6 @@ export class Questing {
             ql = ql.replace(tag, `${this.colour('purple')}${tag}${this.colour('reset')}`)
         }
 
-
-        let props = ql.match(this.propsRe) || [];
-        for(const prop of props) {
-            let key = prop.split(":")[0].slice(1);
-            let val = prop.split(":").slice(1).join(":").slice(0, -1).trim();
-            let fmtProp = `{${key}:${val}}`
-            let fmtPropCol = `${this.colour('red')}{${this.colour('grey')}${key}${this.colour('reset')}:${this.colour('gray')}${val}${this.colour('red')}}${this.colour('reset')}`
-            ql = ql.replace(fmtProp, fmtPropCol)
-        }
-
-
         return ql;
     }
 
@@ -326,7 +312,11 @@ export class Questing {
 
         if(Object.keys(settingsObj).length > 0){
             for(let [key, val] of Object.entries(settingsObj)) {
-                text.push(`@settings.${key} ${val}`.trim())
+                if(typeof val == "string") text.push(`@settings.${key} ${val}`.trim())
+                if(typeof val == "number") text.push(`@settings.${key}:int ${val}`.trim())
+                if(typeof val == "boolean" && val == true) text.push(`@settings.${key}`.trim())
+                if(typeof val == "boolean" && val == false) text.push(`@settings.${key} false`.trim())
+                if(typeof val == "object" && Array.isArray(val)) text.push(`@settings.${key}:list ${val.join("|")}`.trim())
             }
         }
 
@@ -376,7 +366,7 @@ async function main() {
 
     function printSettings() {
         for(const [k, v] of Object.entries(q.settings)) {
-            console.log(` ${q.colour('orange')}${k}${q.colour('reset')}\t\t${q.colour('orange')}${v}${q.colour('reset')}`)
+            console.log(`${typeof v} ${q.colour('orange')}${k}${q.colour('reset')}\t\t${q.colour('orange')}${v}${q.colour('reset')}`)
         }
     }
     switch (args._[0]) {
@@ -469,8 +459,8 @@ async function main() {
                 `.replace(/  +/g, ''))
                 return
             }
-            let expToLevel = Math.floor(100 * Number(q.settings.level) * 1.2);
-            console.log(`Level ${q.settings.level}, ${q.settings.exp}/${expToLevel}`)
+            let expToLevel = Math.floor(100 * q.settings.level * 1.2);
+            console.log(`Level ${q.settings.level}, ${q.settings.exp}/${q.settings.exp}`)
             break;
 
         case "sort-project":
@@ -590,8 +580,7 @@ async function main() {
                     if(args.appendText) quest.text = `${quest.text} ${args.appendText}`;
                     if(args.prependText) quest.text = `${args.prependText} ${quest.text}`;
                     if(args.replaceText) quest.text = quest.text.replace(args.replaceText, args.replaceWith);
-                    if(args.setProp) quest.properties[args.setProp] = args.v || args.value || "";
-                    if(args.unsetProp) delete quests[0].properties[args.unsetProp];
+
                     await q.exportFile();
                     console.log(q.colourQuest(quest))
                     q.dispatchScriptHook("quest_modified", {"quest": quest, "old": old_version})
@@ -620,8 +609,6 @@ async function main() {
                 if(args.appendText) quests[0].text = `${quests[0].text} ${args.appendText}`;
                 if(args.prependText) quests[0].text = `${args.prependText} ${quests[0].text}`;
                 if(args.replaceText) quests[0].text = quests[0].text.replace(args.replaceText, args.replaceWith);
-                if(args.setProp) quests[0].properties[args.setProp] = args.v || args.value || "";
-                if(args.unsetProp) delete quests[0].properties[args.unsetProp];
                 await q.exportFile()
                 console.log(q.colourQuest(quests[0]));
                 q.dispatchScriptHook("quest_modified", {"quest": quests[0], "old": old_version})
