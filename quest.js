@@ -362,20 +362,9 @@ async function main() {
             editor: ['e'],
             value: ["v"]
 
-        },
-        default: {
-            newState: "",
-            newKey: "",
-            newProject: "",
-            replaceWith: "",
-            appendText: "",
-            prependText: "",
-            replaceText: "",
-            setProp: "",
-            value: ""
         }
     });
-    //return console.log(args)
+
     let quests = [];
 
     function filterQuests(includeCompleted = false) {
@@ -603,12 +592,18 @@ async function main() {
             for(const quest of q.quests) {
                 if(quest.key != "" && quest.key == args._.slice(1).join(" ") && quest.completedAt == "") {
                     let old_version = { ...quest }
-                    if(args.setProp != undefined && args.setProp == "") return console.error("Can't set empty key.")
+                    if(args.setProp != undefined && args.setProp == "") return console.error("Can't set empty key.");
 
+                    if(args.newProject == true) args.newProject = "";
+                    if(args.newKey == true) args.newKey = "";
+                    if(args.newState == true) args.newState = "";
+                    if(args.newText == true) args.newText = "";
+                    if(args.appendText == true) args.appendText = "";
+                    if(args.prependText == true) args.prependText = "";
+                    if(args.replaceText == true) args.replaceText = "";
 
                     if(args.newProject != undefined) quest.project = args.newProject;
                     if(args.newKey != undefined) quest.key = args.newKey;
-                    //if(args.newTags) quest.tags = args.newTags.split(",");
                     if(args.newExp) quest.exp = parseInt(args.newExp);
                     if(args.newPriority) quest.priority = parseInt(args.newPriority);
                     if(args.newState != undefined) quest.state = args.newState.toUpperCase();
@@ -616,7 +611,7 @@ async function main() {
                     if(args.appendText) quest.text = `${quest.text} ${args.appendText}`;
                     if(args.prependText) quest.text = `${args.prependText} ${quest.text}`;
                     if(args.replaceText) quest.text = quest.text.replace(args.replaceText, args.replaceWith);
-                    if(args.setProp) quest.properties[args.setProp] = args.value;
+                    if(args.setProp) quest.properties[args.setProp] = `${args.value}`;
                     if(args.unsetProp) delete quest.properties[args.unsetProp];
                     await q.exportFile();
                     console.log(q.colourQuest(quest))
