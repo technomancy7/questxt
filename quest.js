@@ -76,10 +76,7 @@ export class Questing {
     }
 
     colour(c) {
-        if(this.settings.disableColours == "true" || this.settings.disableColours == "") return "";
-        if(this.settings.disableColour == "true" || this.settings.disableColour == "") return "";
-        if(this.settings.disableColors == "true" || this.settings.disableColors == "") return "";
-        if(this.settings.disableColor == "true" || this.settings.disableColor == "") return "";
+        if(this.settings.plaintext == "true" || this.settings.plaintext == "") return "";
 
         let fmtCodes = this.colours();
 
@@ -262,13 +259,14 @@ export class Questing {
     }
 
     formatQuest(q) {
-        console.log(q)
         let ln = q.text;
+        if(q.priority != 0) ln = `(${q.priority}) ${ln}`;
         if(q.completedAt) ln = `${q.completedAt}: ${ln}`;
         if(q.state != "") ln = `${q.state} ${ln}`
+
         if(q.key != "") ln = ln + ` $${q.key}`;
         if(q.project != "") ln = ln + ` @${q.project}`;
-        if(q.priority != 0) ln = ln + ` (${q.priority})`;
+
         if(q.exp != 0) ln = ln + ` [${q.exp}]`;
 
         for(const [key, val] of Object.entries(q.properties)) {
@@ -357,7 +355,27 @@ if(import.meta.main) {
 async function main() {
     let q = new Questing();
     await q.loadFile();
-    const args = argParser(process.argv.slice(2));
+    const args = argParser(process.argv.slice(2), {
+        alias: {
+            disableColour: ["disable-colours", "disable-color", "disable-colors", "dc"],
+            h: ["help"],
+            editor: ['e'],
+            value: ["v"]
+
+        },
+        default: {
+            newState: "",
+            newKey: "",
+            newProject: "",
+            replaceWith: "",
+            appendText: "",
+            prependText: "",
+            replaceText: "",
+            setProp: "",
+            value: ""
+        }
+    });
+    //return console.log(args)
     let quests = [];
 
     function filterQuests(includeCompleted = false) {
@@ -585,10 +603,8 @@ async function main() {
             for(const quest of q.quests) {
                 if(quest.key != "" && quest.key == args._.slice(1).join(" ") && quest.completedAt == "") {
                     let old_version = { ...quest }
-                    if(args.newState == true) args.newState = "";
-                    if(args.newKey == true) args.newKey = "";
-                    if(args.replaceWith == true) args.replaceWith = "";
-                    if(args.newProject == true) args.newProject = "";
+                    if(args.setProp != undefined && args.setProp == "") return console.error("Can't set empty key.")
+
 
                     if(args.newProject != undefined) quest.project = args.newProject;
                     if(args.newKey != undefined) quest.key = args.newKey;
@@ -600,7 +616,7 @@ async function main() {
                     if(args.appendText) quest.text = `${quest.text} ${args.appendText}`;
                     if(args.prependText) quest.text = `${args.prependText} ${quest.text}`;
                     if(args.replaceText) quest.text = quest.text.replace(args.replaceText, args.replaceWith);
-                    if(args.setProp) quest.properties[args.setProp] = args.v || args.value || "";
+                    if(args.setProp) quest.properties[args.setProp] = args.value;
                     if(args.unsetProp) delete quest.properties[args.unsetProp];
                     await q.exportFile();
                     console.log(q.colourQuest(quest))
@@ -824,7 +840,7 @@ async function main() {
                 `.replace(/  +/g, ''))
                 return
             }
-            if(args.e) q.settings.editor = args.e;
+            if(args.editor) q.settings.editor = args.editor;
             await q.editFile();
             break;
 
