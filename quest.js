@@ -358,7 +358,7 @@ async function main() {
     const args = argParser(process.argv.slice(2), {
         alias: {
             disableColour: ["disable-colours", "disable-color", "disable-colors", "dc"],
-            h: ["help"],
+            help: ["h"],
             editor: ['e'],
             value: ["v"]
 
